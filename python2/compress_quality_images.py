@@ -7,12 +7,11 @@
 import os
 import sys
 import time
-import gzip
 import imghdr
 import shutil
 import logging
 import argparse
-import PIL
+import subprocess
 from PIL import Image
 from zipfile import ZipFile
 
@@ -37,55 +36,55 @@ logging.basicConfig(filename=log_file,
 scriptname = "-restaurant"
 
 # Location of files to compress/delete
-images_folder = r"/home/un2x3c5/public_html/webimages/upload/MenuItem"
-# images_folder = r"C:\Users\zoro\Downloads\home"
-backup_folder = r"/home/un2x3c5/un2x3.com/public_ftp/"
-# backup_folder = r"C:\Users\zoro\Downloads\backup"
+# images_folder = r"/home/un2x3c5/public_html/webimages/upload/MenuItem"
+images_folder = r"C:\Users\zoro\Downloads\home"
+# backup_folder = r"/home/un2x3c5/un2x3.com/public_ftp/"
+backup_folder = r"C:\Users\zoro\Downloads\backup"
 
-tmp_linux_folder = r"/home/un2x3c5/tmp"
-# tmp_linux_folder = r"C:\Users\zoro\Downloads\tmp"
+# tmp_linux_folder = r"/home/un2x3c5/tmp"
+tmp_linux_folder = r"C:\Users\zoro\Downloads\tmp"
 
 # Image files older than specified
-image_older_days = 2
+image_older_days = 20000
 
 # minimum size allowed in Bytes
-minimum_size_allowed = 400000  # ~600KB
+minimum_size_allowed = 200000  # ~600KB
 
 # en un futuro preparar select_quality() para tamanos mas pequenos
-if minimum_size_allowed < 400000:
+if minimum_size_allowed < 200000:
     sys.exit()
 
 # Current time
 now = time.time()
 
 
-def from_ago(file):
-    return (now - os.stat(file).st_mtime) / (3600*24) < image_older_days
+def from_ago(_file):
+    return (now - os.stat(_file).st_mtime) / (3600*24) < image_older_days
 
 
-def size_greater_than(file):
-    return os.path.getsize(file) > minimum_size_allowed
+def size_greater_than(_file):
+    return os.path.getsize(_file) > minimum_size_allowed
 
 
-def select_quality(file):
+def select_quality(_file):
     try:
-        imagesize = os.path.getsize(file)
+        image_size = os.path.getsize(_file)
 
-        if imagesize > 6000000:
+        if image_size > 6000000:
             return 10
-        elif imagesize > 4000000:
+        elif image_size > 4000000:
             return 40
-        elif imagesize > 1900000:
+        elif image_size > 1900000:
             return 58
-        elif imagesize > 1000000:
+        elif image_size > 1000000:
             return 42
-        elif imagesize > 800000:
+        elif image_size > 800000:
             return 29
-        elif imagesize > 350000:
+        elif image_size > 350000:
             return 31
         else:
             return 60
-    except:
+    except os.error:
         return 65
 
 
@@ -107,13 +106,15 @@ def is_transparent(image):
             (image.mode == 'P' and 'transparency' in image.info))
 
 
-def colorspace(im, bw=False, replace_alpha=False, **kwargs):
+def colorspace(im, no_rgba=True, bw=False, replace_alpha=False, **kwargs):
     """
     Convert images to the correct color space.
     A passive option (i.e. always processed) of this method is that all images
     (unless grayscale) are converted to RGB colorspace.
     This processor should be listed before :func:`scale_and_crop` so palette is
     changed before the image is resized.
+    no_rgba
+        Si la imagen es transparent (RGBA, LA, etc) la convierte a RGB
     bw
         Make the thumbnail grayscale (not really just black & white).
     replace_alpha
@@ -121,10 +122,10 @@ def colorspace(im, bw=False, replace_alpha=False, **kwargs):
         ``replace_alpha='#fff'`` would replace the transparency layer with
         white.
     """
-    if im.mode == 'I':
-        # PIL (and pillow) have can't convert 16 bit grayscale images to lower
-        # modes, so manually convert them to an 8 bit grayscale.
-        im = im.point(list(_points_table()), 'L')
+    # if im.mode == 'I':
+    #    PIL (and pillow) have can't convert 16 bit grayscale images to lower
+    #    modes, so manually convert them to an 8 bit grayscale.
+    #    im = im.point(list(_points_table()), 'L')
 
     is_transp = is_transparent(im)
     is_grayscale = im.mode in ('L', 'LA')
@@ -134,7 +135,9 @@ def colorspace(im, bw=False, replace_alpha=False, **kwargs):
     else:
         new_mode = 'RGB'
 
-    if is_transp:
+    if no_rgba and is_transp:
+        new_mode = 'RGB'
+    elif is_transp:
         if replace_alpha:
             if im.mode != 'RGBA':
                 im = im.convert('RGBA')
@@ -148,6 +151,17 @@ def colorspace(im, bw=False, replace_alpha=False, **kwargs):
         im = im.convert(new_mode)
 
     return im
+
+
+def optimize(infile, _format="jpg"):
+    runstring = {
+        "jpeg": u"jpegoptim -P -p -q --strip-all --all-progressive --size=250k %(file)s",
+        "jpg": u"jpegoptim -P -p -q --strip-all --all-progressive --size=250k %(file)s",
+        "jfif": u"jpegoptim -P -p -q --strip-all --all-progressive --size=250k %(file)s",
+    }
+    if _format in runstring:
+        sp = subprocess.Popen(runstring[_format] % {'file': infile}, shell=True)
+        sp.wait()
 
 
 def compress_quality_images(path_src=images_folder):
@@ -165,26 +179,32 @@ def compress_quality_images(path_src=images_folder):
     with ZipFile(gzipfile, 'w') as zipObj:
         # Loop through all the folder
         for root, _, files in os.walk(path_src, topdown=False):
-            for file in files:
+            for _file in files:
                 try:
-                    infile = os.path.join(root, file)
+                    saved = False
+                    infile = os.path.join(root, _file)
                     image_header = imghdr.what(infile)
 
                     if from_ago(infile) and size_greater_than(infile) and image_header:
-                        print infile
                         # for PNG compress
                         formatpim = always_jpg(image_header)
-                        file_tmp = "tmp_{}".format(file)
+                        file_tmp = "tmp_{}".format(_file)
                         infile_tmp = os.path.join(tmp_linux_folder, file_tmp)
                         _quality = select_quality(infile)
                         with Image.open(infile) as pim:
                             pim = colorspace(pim)
                             pim.save(infile_tmp, format=formatpim,
                                      optimize=True, quality=_quality)
-                        # Add multiple files to the zip
-                        zipObj.write(infile)
-                        # Move src to dst. (mv src dst)
-                        shutil.move(infile_tmp, infile)
+                            saved = True
+
+                        if saved:
+                            # Add multiple files to the zip
+                            zipObj.write(infile)
+
+                            optimize(infile_tmp, image_header)
+
+                            # Move src to dst. (mv src dst)
+                            shutil.move(infile_tmp, infile)
                 except OSError, e:
                     logging.exception('%s raised an oserror', e)
                 # Problem compress the image
