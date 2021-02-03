@@ -26,7 +26,7 @@ if not os.path.exists(logs_folder):
 
 log_file = os.path.join(logs_folder, "compress_quality_images.log")
 logging.basicConfig(filename=log_file,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d/%m/%Y %I:%M:%S %p', level=logging.WARN)
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d/%m/%Y %I:%M:%S %p', level=logging.DEBUG)
 
 # =======================
 # VARIABLES
@@ -45,20 +45,25 @@ backup_folder = r"C:\Users\zoro\Downloads\backup"
 tmp_linux_folder = r"C:\Users\zoro\Downloads\tmp"
 
 # Image files older than specified
-image_older_days = 20000
+image_older_days = 1
+image_older_hours = 12
 
 # minimum size allowed in Bytes
-minimum_size_allowed = 200000  # ~600KB
+minimum_size_allowed = 280000  # ~600KB
 
 # en un futuro preparar select_quality() para tamanos mas pequenos
-if minimum_size_allowed < 200000:
+if minimum_size_allowed < 240000:
     sys.exit()
 
 # Current time
 now = time.time()
 
 
-def from_ago(_file):
+def from_ago(_file, fmt_hours=False):
+    # retorna el tiempo de los ficheros en horas
+    if fmt_hours:
+        return (now - os.stat(_file).st_mtime) / 3600 < image_older_hours
+    # retorna el tiempo de los ficheros en dias
     return (now - os.stat(_file).st_mtime) / (3600*24) < image_older_days
 
 
@@ -79,9 +84,9 @@ def select_quality(_file):
         elif image_size > 1000000:
             return 42
         elif image_size > 800000:
-            return 29
+            return 65
         elif image_size > 350000:
-            return 31
+            return 55
         else:
             return 60
     except os.error:
@@ -155,9 +160,9 @@ def colorspace(im, no_rgba=True, bw=False, replace_alpha=False, **kwargs):
 
 def optimize(infile, _format="jpg"):
     runstring = {
-        "jpeg": u"jpegoptim -P -p -q --strip-all --all-progressive --size=250k %(file)s",
-        "jpg": u"jpegoptim -P -p -q --strip-all --all-progressive --size=250k %(file)s",
-        "jfif": u"jpegoptim -P -p -q --strip-all --all-progressive --size=250k %(file)s",
+        "jpeg": u"jpegoptim -P -p -q --strip-all --all-progressive --size=290k %(file)s",
+        "jpg": u"jpegoptim -P -p -q --strip-all --all-progressive --size=290k %(file)s",
+        "jfif": u"jpegoptim -P -p -q --strip-all --all-progressive --size=290k %(file)s",
     }
     if _format in runstring:
         sp = subprocess.Popen(runstring[_format] % {'file': infile}, shell=True)
@@ -185,7 +190,7 @@ def compress_quality_images(path_src=images_folder):
                     infile = os.path.join(root, _file)
                     image_header = imghdr.what(infile)
 
-                    if from_ago(infile) and size_greater_than(infile) and image_header:
+                    if from_ago(infile, True) and size_greater_than(infile) and image_header:
                         # for PNG compress
                         formatpim = always_jpg(image_header)
                         file_tmp = "tmp_{}".format(_file)
@@ -217,6 +222,7 @@ def compress_quality_images(path_src=images_folder):
 
 
 if __name__ == "__main__":
+    logging.info('run script')
     parser = argparse.ArgumentParser(
         description='compress images using PIL library')
     parser.add_argument('-src', nargs='?',
@@ -226,4 +232,5 @@ if __name__ == "__main__":
     if args.src:
         # scriptname is global variable
         scriptname = "-{}".format(os.path.basename(args.src)).lower()
-    compress_quality_images(args.src)
+    else:
+        compress_quality_images(args.src)
