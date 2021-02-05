@@ -165,7 +165,8 @@ def optimize(infile, _format="jpg"):
         "jfif": u"jpegoptim -P -p -q --strip-all --all-progressive --size=290k %(file)s",
     }
     if _format in runstring:
-        sp = subprocess.Popen(runstring[_format] % {'file': infile}, shell=True)
+        sp = subprocess.Popen(runstring[_format] %
+                              {'file': infile}, shell=True)
         sp.wait()
 
 
@@ -228,9 +229,3 @@ if __name__ == "__main__":
     parser.add_argument('-src', nargs='?',
                         type=str, help='an path', default=images_folder)
     args = parser.parse_args()
-
-    if args.src:
-        # scriptname is global variable
-        scriptname = "-{}".format(os.path.basename(args.src)).lower()
-    else:
-        compress_quality_images(args.src)
