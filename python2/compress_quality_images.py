@@ -26,7 +26,8 @@ if not os.path.exists(logs_folder):
 
 log_file = os.path.join(logs_folder, "compress_quality_images.log")
 logging.basicConfig(filename=log_file,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d/%m/%Y %I:%M:%S %p', level=logging.DEBUG)
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d/%m/%Y %I:%M:%S %p',
+                    level=logging.INFO)
 
 # =======================
 # VARIABLES
@@ -36,17 +37,17 @@ logging.basicConfig(filename=log_file,
 scriptname = "-restaurant"
 
 # Location of files to compress/delete
-# images_folder = r"/home/un2x3c5/public_html/webimages/upload/MenuItem"
-images_folder = r"C:\Users\zoro\Downloads\home"
-# backup_folder = r"/home/un2x3c5/un2x3.com/public_ftp/"
-backup_folder = r"C:\Users\zoro\Downloads\backup"
+images_folder = r"/home/un2x3c5/public_html/webimages/upload/MenuItem"
+# images_folder = r"C:\Users\zoro\Downloads\home"
+backup_folder = r"/home/un2x3c5/un2x3.com/public_ftp/"
+# backup_folder = r"C:\Users\zoro\Downloads\backup"
 
-# tmp_linux_folder = r"/home/un2x3c5/tmp"
-tmp_linux_folder = r"C:\Users\zoro\Downloads\tmp"
+tmp_linux_folder = r"/home/un2x3c5/tmp"
+# tmp_linux_folder = r"C:\Users\zoro\Downloads\tmp"
 
 # Image files older than specified
 image_older_days = 1
-image_older_hours = 12
+image_older_hours = 23
 
 # minimum size allowed in Bytes
 minimum_size_allowed = 280000  # ~600KB
@@ -223,9 +224,16 @@ def compress_quality_images(path_src=images_folder):
 
 
 if __name__ == "__main__":
-    logging.info('run script')
     parser = argparse.ArgumentParser(
         description='compress images using PIL library')
     parser.add_argument('-src', nargs='?',
                         type=str, help='an path', default=images_folder)
     args = parser.parse_args()
+
+    if args.src:
+        logging.info('run script en %s', args.src)
+        # scriptname is global variable
+        scriptname = "-{}".format(os.path.basename(args.src)).lower()
+    else:
+        logging.info('run script en %s', images_folder)
+    compress_quality_images(args.src)
