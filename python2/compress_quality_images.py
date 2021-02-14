@@ -8,7 +8,6 @@ import os
 import sys
 import time
 import imghdr
-import shutil
 import logging
 import argparse
 import subprocess
@@ -53,8 +52,11 @@ image_older_hours = 23
 minimum_size_allowed = 280000  # ~600KB
 
 # en un futuro preparar select_quality() para tamanos mas pequenos
-if minimum_size_allowed < 240000:
+if minimum_size_allowed < 90000:
     sys.exit()
+
+# resize: image size
+iwidth, iheight = (800, 600)
 
 # Current time
 now = time.time()
@@ -72,21 +74,30 @@ def size_greater_than(_file):
     return os.path.getsize(_file) > minimum_size_allowed
 
 
+def remove_empty_zips():
+    for root, _, files in os.walk(backup_folder, topdown=False):
+        for _file in files:
+            infile = os.path.join(root, _file)
+            # remove .zip with 1K or 22 byte
+            if _file.lower().endswith(".zip") and os.stat(infile).st_size < 24:
+                os.remove(infile)
+
+
 def select_quality(_file):
     try:
-        image_size = os.path.getsize(_file)
+        image_filesize = os.path.getsize(_file)
 
-        if image_size > 6000000:
+        if image_filesize > 6000000:
             return 10
-        elif image_size > 4000000:
+        elif image_filesize > 4000000:
             return 40
-        elif image_size > 1900000:
+        elif image_filesize > 1900000:
             return 58
-        elif image_size > 1000000:
+        elif image_filesize > 1000000:
             return 42
-        elif image_size > 800000:
+        elif image_filesize > 800000:
             return 65
-        elif image_size > 350000:
+        elif image_filesize > 350000:
             return 55
         else:
             return 60
@@ -110,6 +121,25 @@ def is_transparent(image):
         return False
     return (image.mode in ('RGBA', 'LA') or
             (image.mode == 'P' and 'transparency' in image.info))
+
+
+def resize_with_aspect_ratio(im, infile, formatim='jpeg'):
+    """
+    maintain its aspect ratio
+    """
+    try:
+        width, height = im.size
+
+        # maintain ratio to width
+        new_width = iwidth  # iheight * width / height
+        new_height = new_width * height / width
+
+        im = im.resize((new_width, new_height), Image.ANTIALIAS)
+        im.save(infile, format=formatim, optimize=True, progressive=True)
+    except BaseException as e:
+        logging.exception(e)
+        return im, False
+    return im, True
 
 
 def colorspace(im, no_rgba=True, bw=False, replace_alpha=False, **kwargs):
@@ -171,16 +201,25 @@ def optimize(infile, _format="jpg"):
         sp.wait()
 
 
-def compress_quality_images(path_src=images_folder):
+def compress_quality_images(path_src=images_folder, iresize="y", jpegoptim=False):
     gzipname = "{}{}{}".format(now, scriptname, '.zip')
     gzipfile = os.path.join(backup_folder, gzipname)
+    infile_tmp = ""
 
-    # check in tmp folder
-    if not os.path.exists(tmp_linux_folder):
-        return
+    # check if tmp folder exists
+    try:
+        os.stat(tmp_linux_folder)
+    except os.error as e:
+        logging.exception(e)
+        sys.exit()
+
     # create a directory if it does not exist
-    if not os.path.exists(backup_folder):
-        os.makedirs(backup_folder)
+    try:
+        if not os.path.exists(backup_folder):
+            os.makedirs(backup_folder)
+    except OSError as e:
+        logging.exception(e)
+        sys.exit()
 
     # Create a ZipFile Object
     with ZipFile(gzipfile, 'w') as zipObj:
@@ -197,29 +236,38 @@ def compress_quality_images(path_src=images_folder):
                         formatpim = always_jpg(image_header)
                         file_tmp = "tmp_{}".format(_file)
                         infile_tmp = os.path.join(tmp_linux_folder, file_tmp)
-                        _quality = select_quality(infile)
                         with Image.open(infile) as pim:
                             pim = colorspace(pim)
-                            pim.save(infile_tmp, format=formatpim,
-                                     optimize=True, quality=_quality)
+                            resized = False
+                            # resize image
+                            if iresize == "y":
+                                pim, resized = resize_with_aspect_ratio(
+                                    pim, infile_tmp, formatpim)
+                            if not resized or size_greater_than(infile_tmp):
+                                # check file size and optimize
+                                _quality = select_quality(infile)
+                                pim.save(infile_tmp, format=formatpim,
+                                         optimize=True, progressive=True, quality=_quality)
                             saved = True
-
-                        if saved:
-                            # Add multiple files to the zip
-                            zipObj.write(infile)
-
+                        # i am not using (optimize) function anymore
+                        # I solved by resizing the image with PIL
+                        if jpegoptim:
                             optimize(infile_tmp, image_header)
 
+                        if saved:
+                            # Add file to the zip
+                            zipObj.write(infile)
+
                             # Move src to dst. (mv src dst)
-                            shutil.move(infile_tmp, infile)
-                except OSError, e:
+                            # shutil.move(infile_tmp, infile)
+                except OSError as e:
                     logging.exception('%s raised an oserror', e)
                 # Problem compress the image
-                except IOError, e:
+                except IOError as e:
                     logging.exception('%s raised an exception', e)
                     if os.path.exists(infile_tmp):
                         os.remove(infile_tmp)
-                except BaseException, e:
+                except BaseException as e:
                     logging.exception('%s raised an exception--', e)
 
 
@@ -228,6 +276,8 @@ if __name__ == "__main__":
         description='compress images using PIL library')
     parser.add_argument('-src', nargs='?',
                         type=str, help='an path', default=images_folder)
+    parser.add_argument('-resize', nargs='?',
+                        type=str, choices=("y", "n"), help='resize maintain ratio', default="y")
     args = parser.parse_args()
 
     if args.src:
@@ -236,4 +286,6 @@ if __name__ == "__main__":
         scriptname = "-{}".format(os.path.basename(args.src)).lower()
     else:
         logging.info('run script en %s', images_folder)
-    compress_quality_images(args.src)
+
+    compress_quality_images(args.src, iresize=args.resize)
+    remove_empty_zips()
