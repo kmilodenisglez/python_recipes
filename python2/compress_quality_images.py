@@ -8,6 +8,7 @@ import os
 import sys
 import time
 import imghdr
+import shutil
 import logging
 import argparse
 import subprocess
@@ -49,9 +50,8 @@ image_older_days = 1
 image_older_hours = 23
 
 # minimum size allowed in Bytes
-minimum_size_allowed = 280000  # ~600KB
+minimum_size_allowed = 100000  # ~100KB
 
-# en un futuro preparar select_quality() para tamanos mas pequenos
 if minimum_size_allowed < 90000:
     sys.exit()
 
@@ -259,7 +259,7 @@ def compress_quality_images(path_src=images_folder, iresize="y", jpegoptim=False
                             zipObj.write(infile)
 
                             # Move src to dst. (mv src dst)
-                            # shutil.move(infile_tmp, infile)
+                            shutil.move(infile_tmp, infile)
                 except OSError as e:
                     logging.exception('%s raised an oserror', e)
                 # Problem compress the image
