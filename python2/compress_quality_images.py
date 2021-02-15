@@ -50,13 +50,13 @@ image_older_days = 1
 image_older_hours = 23
 
 # minimum size allowed in Bytes
-minimum_size_allowed = 100000  # ~100KB
+minimum_size_allowed = 90000  # ~90KB
 
-if minimum_size_allowed < 90000:
+if minimum_size_allowed < 88000:
     sys.exit()
 
 # resize: image size
-iwidth, iheight = (800, 600)
+iwidth, iheight = (600, 600)
 
 # Current time
 now = time.time()
@@ -89,15 +89,13 @@ def select_quality(_file):
 
         if image_filesize > 6000000:
             return 10
-        elif image_filesize > 4000000:
-            return 40
         elif image_filesize > 1900000:
-            return 58
+            return 40
         elif image_filesize > 1000000:
             return 42
-        elif image_filesize > 800000:
-            return 65
         elif image_filesize > 350000:
+            return 65
+        elif image_filesize > 90000:
             return 55
         else:
             return 60
@@ -245,7 +243,7 @@ def compress_quality_images(path_src=images_folder, iresize="y", jpegoptim=False
                                     pim, infile_tmp, formatpim)
                             if not resized or size_greater_than(infile_tmp):
                                 # check file size and optimize
-                                _quality = select_quality(infile)
+                                _quality = select_quality(infile_tmp)
                                 pim.save(infile_tmp, format=formatpim,
                                          optimize=True, progressive=True, quality=_quality)
                             saved = True
