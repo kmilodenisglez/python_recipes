@@ -187,19 +187,19 @@ def colorspace(im, no_rgba=True, bw=False, replace_alpha=False, **kwargs):
     return im
 
 
-def optimize(infile, _format="jpg"):
+def optimize(infile, _format="jpg", filesize="290k"):
     runstring = {
-        "jpeg": u"jpegoptim -P -p -q --strip-all --all-progressive --size=290k %(file)s",
-        "jpg": u"jpegoptim -P -p -q --strip-all --all-progressive --size=290k %(file)s",
-        "jfif": u"jpegoptim -P -p -q --strip-all --all-progressive --size=290k %(file)s",
+        "jpeg": u"jpegoptim -P -p -q --strip-all --all-progressive --size=%(fsize)s %(file)s",
+        "jpg": u"jpegoptim -P -p -q --strip-all --all-progressive --size=%(fsize)s %(file)s",
+        "jfif": u"jpegoptim -P -p -q --strip-all --all-progressive --size=%(fsize)s %(file)s",
     }
     if _format in runstring:
         sp = subprocess.Popen(runstring[_format] %
-                              {'file': infile}, shell=True)
+                              {'file': infile, 'fsize': filesize}, shell=True)
         sp.wait()
 
 
-def compress_quality_images(path_src=images_folder, iresize="y", jpegoptim=False):
+def compress_quality_images(path_src=images_folder, iresize="y", jpegoptim="y"):
     gzipname = "{}{}{}".format(now, scriptname, '.zip')
     gzipfile = os.path.join(backup_folder, gzipname)
     infile_tmp = ""
@@ -247,10 +247,9 @@ def compress_quality_images(path_src=images_folder, iresize="y", jpegoptim=False
                                 pim.save(infile_tmp, format=formatpim,
                                          optimize=True, progressive=True, quality=_quality)
                             saved = True
-                        # i am not using (optimize) function anymore
-                        # I solved by resizing the image with PIL
-                        if jpegoptim:
-                            optimize(infile_tmp, image_header)
+
+                        if jpegoptim == "y" and os.stat(infile_tmp).st_size > 70000:
+                            optimize(infile_tmp, image_header, '70k')
 
                         if saved:
                             # Add file to the zip
@@ -275,7 +274,9 @@ if __name__ == "__main__":
     parser.add_argument('-src', nargs='?',
                         type=str, help='an path', default=images_folder)
     parser.add_argument('-resize', nargs='?',
-                        type=str, choices=("y", "n"), help='resize maintain ratio', default="y")
+                        type=str, choices=("y", "n"), help='resize maintain ratio, is "y" by default', default="y")
+    parser.add_argument('-jpegoptim', nargs='?',
+                        type=str, choices=("y", "n"), help='run the jpegoptim binary, is "y" by default', default="y")
     args = parser.parse_args()
 
     if args.src:
@@ -285,5 +286,5 @@ if __name__ == "__main__":
     else:
         logging.info('run script en %s', images_folder)
 
-    compress_quality_images(args.src, iresize=args.resize)
+    compress_quality_images(args.src, iresize=args.resize, jpegoptim=args.jpegoptim)
     remove_empty_zips()
