@@ -127,10 +127,12 @@ def resize_with_aspect_ratio(im, infile, formatim='jpeg'):
     """
     try:
         width, height = im.size
-
-        # maintain ratio to width
-        new_width = iwidth  # iheight * width / height
-        new_height = new_width * height / width
+        new_width, new_height = im.size
+        # applied (iwidth, iheight) only if it is less than original image size
+        if (iwidth, iheight) < (width, height):
+            # maintain ratio to width
+            new_width = iwidth  # iheight * width / height
+            new_height = new_width * height / width
 
         im = im.resize((new_width, new_height), Image.ANTIALIAS)
         im.save(infile, format=formatim, optimize=True, progressive=True)
