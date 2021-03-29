@@ -15,11 +15,10 @@ import subprocess
 from PIL import Image
 from zipfile import ZipFile
 
-
 # =======================
 # LOGGING
 # =======================
-logs_folder = r"/home/un2x3c5/logs/cronjob"
+logs_folder = r"/home/userfolder/logs/cronjob"
 # create a directory if it does not exist
 if not os.path.exists(logs_folder):
     os.makedirs(logs_folder)
@@ -34,16 +33,23 @@ logging.basicConfig(filename=log_file,
 # =======================
 
 # variable to name the compressed .zip
-scriptname = "-restaurant"
+script_name = "-restaurant"
 
 # Location of files to compress/delete
-images_folder = r"/home/un2x3c5/public_html/webimages/upload/MenuItem"
-# images_folder = r"C:\Users\zoro\Downloads\home"
-backup_folder = r"/home/un2x3c5/un2x3.com/public_ftp/"
-# backup_folder = r"C:\Users\zoro\Downloads\backup"
+images_folder = r"/home/userfolder/public_html/webimages/upload/MenuItem"
+# images_folder = r"C:\Users\userfolder\Downloads\home"
+backup_folder = r"/home/userfolder/backup/"
+# backup_folder = r"C:\Users\userfolder\Downloads\backup"
 
-tmp_linux_folder = r"/home/un2x3c5/tmp"
-# tmp_linux_folder = r"C:\Users\zoro\Downloads\tmp"
+tmp_linux_folder = r"./prueba/tmp"
+# tmp_linux_folder = r"C:\Users\userfolder\Downloads\tmp"
+
+# check if tmp folder exists
+try:
+    os.stat(tmp_linux_folder)
+except os.error as e:
+    logging.exception(e)
+    sys.exit()
 
 # Image files older than specified
 image_older_days = 1
@@ -55,19 +61,19 @@ minimum_size_allowed = 90000  # ~90KB
 if minimum_size_allowed < 88000:
     sys.exit()
 
-# resize: image size
-iwidth, iheight = (600, 600)
+# dictionary for image sizes
+sizes = {'small': (100, 100), 'standard': (600, 600)}
 
 # Current time
 now = time.time()
 
 
 def from_ago(_file, fmt_hours=False):
-    # retorna el tiempo de los ficheros en horas
+    # return file time in hour
     if fmt_hours:
         return (now - os.stat(_file).st_mtime) / 3600 < image_older_hours
-    # retorna el tiempo de los ficheros en dias
-    return (now - os.stat(_file).st_mtime) / (3600*24) < image_older_days
+    # return file time in day
+    return (now - os.stat(_file).st_mtime) / (3600 * 24) < image_older_days
 
 
 def size_greater_than(_file):
@@ -121,25 +127,38 @@ def is_transparent(image):
             (image.mode == 'P' and 'transparency' in image.info))
 
 
-def resize_with_aspect_ratio(im, infile, formatim='jpeg'):
+def resize_with_aspect_ratio(im, infile, format_im='jpeg'):
     """
     maintain its aspect ratio
     """
     try:
         width, height = im.size
-        new_width, new_height = im.size
-        # applied (iwidth, iheight) only if it is less than original image size
-        if (iwidth, iheight) < (width, height):
+        width_to_apply, height_to_apply = sizes.get('standard', (600, 600))
+        # applied (width_to_apply, height_to_apply) only if it is less than original image size
+        if (width_to_apply, height_to_apply) < (width, height):
             # maintain ratio to width
-            new_width = iwidth  # iheight * width / height
-            new_height = new_width * height / width
-
-        im = im.resize((new_width, new_height), Image.ANTIALIAS)
-        im.save(infile, format=formatim, optimize=True, progressive=True)
-    except BaseException as e:
-        logging.exception(e)
+            height_to_apply = width_to_apply * height / width
+            im = im.resize((width_to_apply, height_to_apply), Image.ANTIALIAS)
+        else:
+            im = im.resize((width, height), Image.ANTIALIAS)
+        im.save(infile, format=format_im, optimize=True, progressive=True)
+    except BaseException as error:
+        logging.exception(error)
         return im, False
     return im, True
+
+
+def generate_thumbnail(im, dirpath, filename, format_im='jpeg'):
+    try:
+        width_to_apply, height_to_apply = sizes.get('small', (100, 100))
+        im.thumbnail((width_to_apply, height_to_apply))
+        #  save each image into separate folders according to dimensions in dictionary
+        new_filename = '{0}x{1}_resized_{2}'.format(width_to_apply,
+                                                    height_to_apply, filename)
+        infile = os.path.join(dirpath, new_filename)
+        im.save(infile, format=format_im, optimize=True, progressive=True)
+    except BaseException as error:
+        logging.exception(error)
 
 
 def colorspace(im, no_rgba=True, bw=False, replace_alpha=False, **kwargs):
@@ -201,46 +220,39 @@ def optimize(infile, _format="jpg", filesize="290k"):
         sp.wait()
 
 
-def compress_quality_images(path_src=images_folder, iresize="y", jpegoptim="y"):
-    gzipname = "{}{}{}".format(now, scriptname, '.zip')
-    gzipfile = os.path.join(backup_folder, gzipname)
+def compress_quality_images(path_src=images_folder, _resize_img="y", _optimize_jpeg="y", _generate_thumbnail="y"):
+    gzip_name = "{}{}{}".format(now, script_name, '.zip')
+    gzip_file = os.path.join(backup_folder, gzip_name)
     infile_tmp = ""
-
-    # check if tmp folder exists
-    try:
-        os.stat(tmp_linux_folder)
-    except os.error as e:
-        logging.exception(e)
-        sys.exit()
 
     # create a directory if it does not exist
     try:
         if not os.path.exists(backup_folder):
             os.makedirs(backup_folder)
-    except OSError as e:
-        logging.exception(e)
+    except OSError as error:
+        logging.exception(error)
         sys.exit()
 
     # Create a ZipFile Object
-    with ZipFile(gzipfile, 'w') as zipObj:
+    with ZipFile(gzip_file, 'w') as zipObj:
         # Loop through all the folder
-        for root, _, files in os.walk(path_src, topdown=False):
-            for _file in files:
+        for dirpath, _, filenames in os.walk(path_src, topdown=False):
+            for filename in filenames:
                 try:
                     saved = False
-                    infile = os.path.join(root, _file)
+                    infile = os.path.join(dirpath, filename)
                     image_header = imghdr.what(infile)
 
                     if from_ago(infile, True) and size_greater_than(infile) and image_header:
                         # for PNG compress
                         formatpim = always_jpg(image_header)
-                        file_tmp = "tmp_{}".format(_file)
+                        file_tmp = "tmp_{}".format(filename)
                         infile_tmp = os.path.join(tmp_linux_folder, file_tmp)
                         with Image.open(infile) as pim:
                             pim = colorspace(pim)
                             resized = False
                             # resize image
-                            if iresize == "y":
+                            if _resize_img == "y":
                                 pim, resized = resize_with_aspect_ratio(
                                     pim, infile_tmp, formatpim)
                             if not resized or size_greater_than(infile_tmp):
@@ -248,9 +260,13 @@ def compress_quality_images(path_src=images_folder, iresize="y", jpegoptim="y"):
                                 _quality = select_quality(infile_tmp)
                                 pim.save(infile_tmp, format=formatpim,
                                          optimize=True, progressive=True, quality=_quality)
+                            # thumbnail
+                            if _generate_thumbnail == "y":
+                                generate_thumbnail(pim, dirpath, filename, formatpim)
+
                             saved = True
 
-                        if jpegoptim == "y" and os.stat(infile_tmp).st_size > 70000:
+                        if _optimize_jpeg == "y" and os.stat(infile_tmp).st_size > 70000:
                             optimize(infile_tmp, image_header, '70k')
 
                         if saved:
@@ -259,15 +275,15 @@ def compress_quality_images(path_src=images_folder, iresize="y", jpegoptim="y"):
 
                             # Move src to dst. (mv src dst)
                             shutil.move(infile_tmp, infile)
-                except OSError as e:
-                    logging.exception('%s raised an oserror', e)
+                except OSError as error:
+                    logging.exception('%s raised an os error', error)
                 # Problem compress the image
-                except IOError as e:
-                    logging.exception('%s raised an exception', e)
+                except IOError as error:
+                    logging.exception('%s raised an exception', error)
                     if os.path.exists(infile_tmp):
                         os.remove(infile_tmp)
-                except BaseException as e:
-                    logging.exception('%s raised an exception--', e)
+                except BaseException as error:
+                    logging.exception('%s raised an exception--', error)
 
 
 if __name__ == "__main__":
@@ -277,16 +293,19 @@ if __name__ == "__main__":
                         type=str, help='an path', default=images_folder)
     parser.add_argument('-resize', nargs='?',
                         type=str, choices=("y", "n"), help='resize maintain ratio, is "y" by default', default="y")
+    parser.add_argument('-thumbnail', nargs='?',
+                        type=str, choices=("y", "n"), help='make image into a thumbnail', default="y")
     parser.add_argument('-jpegoptim', nargs='?',
                         type=str, choices=("y", "n"), help='run the jpegoptim binary, is "y" by default', default="y")
     args = parser.parse_args()
 
     if args.src:
         logging.info('run script en %s', args.src)
-        # scriptname is global variable
-        scriptname = "-{}".format(os.path.basename(args.src)).lower()
+        # script_name is global variable
+        script_name = "-{}".format(os.path.basename(args.src)).lower()
     else:
         logging.info('run script en %s', images_folder)
 
-    compress_quality_images(args.src, iresize=args.resize, jpegoptim=args.jpegoptim)
+    compress_quality_images(args.src, _resize_img=args.resize, _optimize_jpeg=args.jpegoptim,
+                            _generate_thumbnail=args.thumbnail)
     remove_empty_zips()
