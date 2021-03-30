@@ -56,7 +56,7 @@ image_older_days = 1
 image_older_hours = 23
 
 # minimum size allowed in Bytes
-minimum_size_allowed = 90000  # ~90KB
+minimum_size_allowed = 89000  # ~90KB
 
 if minimum_size_allowed < 88000:
     sys.exit()
