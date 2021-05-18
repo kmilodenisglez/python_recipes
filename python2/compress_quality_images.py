@@ -41,7 +41,7 @@ images_folder = r"/home/userfolder/public_html/webimages/upload/MenuItem"
 backup_folder = r"/home/userfolder/backup/"
 # backup_folder = r"C:\Users\userfolder\Downloads\backup"
 
-tmp_linux_folder = r"./prueba/tmp"
+tmp_linux_folder = r"/home/un2x3c5/tmp"
 # tmp_linux_folder = r"C:\Users\userfolder\Downloads\tmp"
 
 # check if tmp folder exists
