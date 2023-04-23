@@ -11,3 +11,4 @@ recipes – small Python programs, with real code samples
 - detect_device_in_windows.py
 - watchdog_ex.py
 - watchdog_ex2.py
+- JWS signature: sign/verify functions using RFC-7797 / JWS (Detached Payload) and x5c param attribute
