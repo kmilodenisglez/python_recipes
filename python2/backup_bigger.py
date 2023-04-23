@@ -22,8 +22,8 @@ scriptname = "-restaurant"
 timestamp_name = "timestamp_rst"
 
 # Location of files to compress/delete
-images_folder = "/home/un2x3c5/public_html/webimages/upload/Company"
-backup_folder = "/home/un2x3c5/un2x3.com/public_ftp/"
+images_folder = "/here_folder_to_backup/"
+backup_folder = "/here_backup_dir/"
 
 # Image files older than specified
 image_older_days = 1
