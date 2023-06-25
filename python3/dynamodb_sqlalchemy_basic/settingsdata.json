@@ -1,0 +1,55 @@
+[
+  {
+    "environment": "dev",
+    "slug": "5afaafa9-5090-4bda-b1bc-38852649ac49",
+    "data": {
+      "debug_mode_enabled": true,
+      "notification_enabled": 20
+    },
+    "created_at": "2023-06-20T00:00:00Z",
+    "updated_at": "2023-06-20T00:00:00Z"
+  },
+  {
+    "environment": "prod",
+    "slug": "9afaafa9-5090-4bda-b1bc-38852649ab41",
+    "data": {
+      "debug_mode_enabled": false,
+      "notification_enabled": 15
+    },
+    "created_at": "2023-06-20T00:00:00Z",
+    "updated_at": "2023-06-20T00:00:00Z"
+  },
+  {
+    "environment": "prod",
+    "slug": "6afaafa9-5090-4bda-b1bc-38852649ac14",
+    "data": {
+      "level": "INFO",
+      "format": "%(asctime)s %(levelname)s %(message)s"
+    },
+    "created_at": "2023-06-20T00:00:00Z",
+    "updated_at": "2023-06-20T00:00:00Z"
+  },
+  {
+    "environment": "staging",
+    "slug": "2afaafa9-5090-4bda-b1bc-38852649ac39",
+    "data": {
+      "debug_mode_enabled": true,
+      "notification_enabled": 4
+    },
+    "created_at": "2023-06-20T00:00:00Z",
+    "updated_at": "2023-06-20T00:00:00Z"
+  },
+  {
+    "environment": "staging",
+    "slug": "1afaafa9-5090-4bda-b1bc-38852649ac41",
+    "data": {
+      "host": "stagingdb.example.com",
+      "port": 5432,
+      "username": "staginguser",
+      "password": "stagingpassword",
+      "database": "stagingdatabase"
+    },
+    "created_at": "2023-06-20T00:00:00Z",
+    "updated_at": "2023-06-20T00:00:00Z"
+  }
+]
