@@ -22,27 +22,33 @@ Each subfolder contains its own README with details and usage examples.
 
 | Script | Description | Dependencies |
 |--------|-------------|--------------|
-| `backup_bigger.py` | Backup files larger than specified size | `os`, `shutil` |
-| `compress_quality_images.py` | Optimize images with quality adjustment | `PIL` |
-| `delete_unused_images.py` | Cleanup unused image files | `os`, `time` |
-| `generate_thumbnails.py` | Batch generate image thumbnails | `PIL` |
+| [`backup_bigger.py`](python2/backup_bigger.py) | Backup files larger than specified size | `os`, `shutil` |
+| [`compress_quality_images.py`](python2/compress_quality_images.py) | Optimize images with quality adjustment | `PIL` |
+| [`delete_unused_images.py`](python2/delete_unused_images.py) | Cleanup unused image files | `os`, `time` |
+| [`generate_thumbnails.py`](python2/generate_thumbnails.py) | Batch generate image thumbnails | `PIL` |
 
 ### Python 3 (Recommended)
 
 #### File Management 🗂️
 | Script | Description | Dependencies |
 |--------|-------------|--------------|
-| `watchdog_ex.py` | File system monitoring with basic event handling | `watchdog` |
-| `watchdog_ex2.py` | Advanced directory monitoring with pattern matching | `watchdog`, `re` |
+| [`watchdog_ex.py`](python3/watchdog_ex.py) | File system monitoring with basic event handling | [`watchdog`](https://pypi.org/project/watchdog/) |
+| [`watchdog_ex2.py`](python3/watchdog_ex2.py) | Advanced directory monitoring with pattern matching | [`watchdog`](https://pypi.org/project/watchdog/), `re` |
 
 #### System Utilities 🖥️
 | Script | Description | Dependencies |
 |--------|-------------|--------------|
-| `detect_device_in_windows.py` | Detect connected USB devices on Windows | `winreg`, `time` |
+| [`detect_device_in_windows.py`](python3/detect_device_in_windows.py) | Detect connected USB devices on Windows | `winreg`, `time` |
+
+#### Database Integration 🗄️
+| Script | Description | Dependencies |
+|--------|-------------|--------------|
+| [`pynamodb_basic_example.py`](python3/pynamodb_basic_example.py) | Basic DynamoDB operations with PynamoDB | [`pynamodb`](https://pypi.org/project/pynamodb/) |
+| [`dynamodb_sqlalchemy_basic/`](python3/dynamodb_sqlalchemy_basic/) | SQLAlchemy integration with DynamoDB | [`sqlalchemy`](https://pypi.org/project/SQLAlchemy/) |
 
 #### Security 🔒
 | Script | Description | Dependencies |
 |--------|-------------|--------------|
-| `JWS/` | JWS signature implementation with x5c support | `cryptography`, `json` |
-| - `sign.py` | Create detached JWS signatures (RFC-7797) |  |
-| - `verify.py` | Verify JWS signatures with x5c validation |  |
+| [`json_web_token/`](python3/json_web_token/) | JWS signature implementation with x5c support | [`cryptography`](https://pypi.org/project/cryptography/), [`PyJWT`](https://pypi.org/project/PyJWT/) |
+| - `sign_message_detached()` | Create detached JWS signatures (RFC-7797) |  |
+| - `verify_message_detached()` | Verify JWS signatures with x5c validation |  |
