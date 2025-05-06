@@ -1,4 +1,13 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Image compression and thumbnail generation utility.
+
+This script processes images by:
+1. Compressing them to reduce file size
+2. Generating thumbnails
+3. Creating backups of original files
+"""
 
 # =======================
 # MODULES IMPORTS
@@ -14,74 +23,128 @@ import argparse
 import subprocess
 from PIL import Image
 from zipfile import ZipFile
+from ConfigParser import ConfigParser  # Python 2 import
 
 # =======================
-# LOGGING
-# =======================
-logs_folder = r"/home/userfolder/logs/cronjob"
-# create a directory if it does not exist
-if not os.path.exists(logs_folder):
-    os.makedirs(logs_folder)
-
-log_file = os.path.join(logs_folder, "compress_quality_images.log")
-logging.basicConfig(filename=log_file,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%d/%m/%Y %I:%M:%S %p',
-                    level=logging.INFO)
-
-# =======================
-# VARIABLES
+# CONFIGURATION
 # =======================
 
-# variable to name the compressed .zip
-script_name = "-restaurant"
+# Load configuration from config file if exists
+CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'config.ini')
+config = ConfigParser()
 
-# Location of files to compress/delete
-images_folder = r"/home/userfolder/public_html/webimages/upload/MenuItem"
-# images_folder = r"C:\Users\userfolder\Downloads\home"
-backup_folder = r"/home/userfolder/backup/"
-# backup_folder = r"C:\Users\userfolder\Downloads\backup"
+# Default configuration
+DEFAULT_CONFIG = {
+    'paths': {
+        'images_folder': '/home/userfolder/public_html/webimages/upload/MenuItem',
+        'backup_folder': '/home/userfolder/backup/',
+        'tmp_folder': '/home/userfolder/tmp',
+        'logs_folder': '/home/userfolder/logs/cronjob'
+    },
+    'settings': {
+        'script_name': '-restaurant',
+        'image_older_hours': '23',
+        'image_older_days': '1',
+        'minimum_size_allowed': '89000'
+    }
+}
 
-tmp_linux_folder = r"/home/un2x3c5/tmp"
-# tmp_linux_folder = r"C:\Users\userfolder\Downloads\tmp"
+# Try to load config file, use defaults if not available
+if os.path.exists(CONFIG_FILE):
+    config.read(CONFIG_FILE)
+else:
+    # Create sections
+    config.add_section('paths')
+    config.add_section('settings')
+    
+    # Set default values
+    for section, options in DEFAULT_CONFIG.items():
+        for option, value in options.items():
+            config.set(section, option, value)
+    
+    # Write default config file
+    with open(CONFIG_FILE, 'w') as f:
+        config.write(f)
 
-# check if tmp folder exists
-try:
-    os.stat(tmp_linux_folder)
-except os.error as e:
-    logging.exception(e)
-    sys.exit()
+# Get configuration values
+IMAGES_FOLDER = config.get('paths', 'images_folder')
+BACKUP_FOLDER = config.get('paths', 'backup_folder')
+TMP_FOLDER = config.get('paths', 'tmp_folder')
+LOGS_FOLDER = config.get('paths', 'logs_folder')
 
-# Image files older than specified
-image_older_days = 1
-image_older_hours = 23
+SCRIPT_NAME = config.get('settings', 'script_name')
+IMAGE_OLDER_HOURS = config.getint('settings', 'image_older_hours')
+IMAGE_OLDER_DAYS = config.getint('settings', 'image_older_days')
+MINIMUM_SIZE_ALLOWED = config.getint('settings', 'minimum_size_allowed')
 
-# minimum size allowed in Bytes
-minimum_size_allowed = 89000  # ~90KB
+SIZES = {
+    'standard': (600, 600),
+    'small': (100, 100)
+}
 
-if minimum_size_allowed < 88000:
-    sys.exit()
+# =======================
+# LOGGING SETUP
+# =======================
 
-# dictionary for image sizes
-sizes = {'small': (100, 100), 'standard': (600, 600)}
+def setup_logging():
+    """Configure logging with proper format and file location."""
+    # Create logs directory if it doesn't exist
+    if not os.path.exists(LOGS_FOLDER):
+        os.makedirs(LOGS_FOLDER)
 
-# Current time
-now = time.time()
+    log_file = os.path.join(LOGS_FOLDER, "compress_quality_images.log")
+    
+    # Configure logging
+    logging.basicConfig(
+        filename=log_file,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', 
+        datefmt='%d/%m/%Y %I:%M:%S %p',
+        level=logging.INFO
+    )
+    
+    # Add console handler for debugging
+    console = logging.StreamHandler()
+    console.setLevel(logging.WARNING)
+    logging.getLogger('').addHandler(console)
 
+setup_logging()
 
-def from_ago(_file, fmt_hours=False):
-    # return file time in hour
+# =======================
+# IMAGE PROCESSING FUNCTIONS
+# =======================
+
+def from_ago(file_path, fmt_hours=False):
+    """
+    Check if file was modified within specified time period.
+    
+    Args:
+        file_path (str): Path to the file
+        fmt_hours (bool): If True, check hours instead of days
+        
+    Returns:
+        bool: True if file is newer than threshold, False otherwise
+    """
+    now = time.time()
     if fmt_hours:
-        return (now - os.stat(_file).st_mtime) / 3600 < image_older_hours
-    # return file time in day
-    return (now - os.stat(_file).st_mtime) / (3600 * 24) < image_older_days
+        return (now - os.stat(file_path).st_mtime) / 3600 < IMAGE_OLDER_HOURS
+    return (now - os.stat(file_path).st_mtime) / (3600 * 24) < IMAGE_OLDER_DAYS
 
 
-def size_greater_than(_file):
-    return os.path.getsize(_file) > minimum_size_allowed
+def size_greater_than(file_path):
+    """
+    Check if file size is greater than minimum allowed.
+    
+    Args:
+        file_path (str): Path to the file
+        
+    Returns:
+        bool: True if file is larger than threshold, False otherwise
+    """
+    return os.path.getsize(file_path) > MINIMUM_SIZE_ALLOWED
 
 
 def remove_empty_zips():
-    for root, _, files in os.walk(backup_folder, topdown=False):
+    for root, _, files in os.walk(BACKUP_FOLDER, topdown=False):
         for _file in files:
             infile = os.path.join(root, _file)
             # remove .zip with 1K or 22 byte
@@ -89,9 +152,18 @@ def remove_empty_zips():
                 os.remove(infile)
 
 
-def select_quality(_file):
+def select_quality(file_path):
+    """
+    Select appropriate compression quality based on file size.
+    
+    Args:
+        file_path (str): Path to the file
+        
+    Returns:
+        int: Quality value (10-65)
+    """
     try:
-        image_filesize = os.path.getsize(_file)
+        image_filesize = os.path.getsize(file_path)
 
         if image_filesize > 6000000:
             return 10
@@ -106,10 +178,20 @@ def select_quality(_file):
         else:
             return 60
     except os.error:
+        logging.exception("Error determining file size")
         return 65
 
 
 def always_jpg(image_header):
+    """
+    Convert PNG to JPEG format identifier.
+    
+    Args:
+        image_header (str): Image format identifier
+        
+    Returns:
+        str: Format to use (always 'jpeg' for PNG)
+    """
     if image_header and image_header.lower() == "png":
         return "jpeg"
     return image_header
@@ -117,11 +199,15 @@ def always_jpg(image_header):
 
 def is_transparent(image):
     """
-    Check to see if an image is transparent.
+    Check if an image has transparency.
+    
+    Args:
+        image (PIL.Image): PIL Image object
+        
+    Returns:
+        bool: True if image has transparency, False otherwise
     """
     if not isinstance(image, Image.Image):
-        # Can only deal with PIL images, fall back to the assumption that that
-        # it's not transparent.
         return False
     return (image.mode in ('RGBA', 'LA') or
             (image.mode == 'P' and 'transparency' in image.info))
@@ -133,11 +219,11 @@ def resize_with_aspect_ratio(im, infile, format_im='jpeg'):
     """
     try:
         width, height = im.size
-        width_to_apply, height_to_apply = sizes.get('standard', (600, 600))
+        width_to_apply, height_to_apply = SIZES.get('standard', (600, 600))
         # applied (width_to_apply, height_to_apply) only if it is less than original image size
         if (width_to_apply, height_to_apply) < (width, height):
             # maintain ratio to width
-            height_to_apply = width_to_apply * height / width
+            height_to_apply = int(width_to_apply * height / width)
             im = im.resize((width_to_apply, height_to_apply), Image.ANTIALIAS)
         else:
             im = im.resize((width, height), Image.ANTIALIAS)
@@ -150,7 +236,7 @@ def resize_with_aspect_ratio(im, infile, format_im='jpeg'):
 
 def generate_thumbnail(im, dirpath, filename, format_im='jpeg'):
     try:
-        width_to_apply, height_to_apply = sizes.get('small', (100, 100))
+        width_to_apply, height_to_apply = SIZES.get('small', (100, 100))
         im.thumbnail((width_to_apply, height_to_apply))
         #  save each image into separate folders according to dimensions in dictionary
         new_filename = '{0}x{1}_resized_{2}'.format(width_to_apply,
@@ -164,27 +250,20 @@ def generate_thumbnail(im, dirpath, filename, format_im='jpeg'):
 def colorspace(im, no_rgba=True, bw=False, replace_alpha=False, **kwargs):
     """
     Convert images to the correct color space.
-    A passive option (i.e. always processed) of this method is that all images
-    (unless grayscale) are converted to RGB colorspace.
-    This processor should be listed before :func:`scale_and_crop` so palette is
-    changed before the image is resized.
-    no_rgba
-        Si la imagen es transparent (RGBA, LA, etc) la convierte a RGB
-    bw
-        Make the thumbnail grayscale (not really just black & white).
-    replace_alpha
-        Replace any transparency layer with a solid color. For example,
-        ``replace_alpha='#fff'`` would replace the transparency layer with
-        white.
+    
+    Args:
+        im (PIL.Image): PIL Image object
+        no_rgba (bool): Convert transparent images to RGB
+        bw (bool): Convert to grayscale
+        replace_alpha (str): Color to replace transparency with
+        
+    Returns:
+        PIL.Image: Converted image
     """
-    # if im.mode == 'I':
-    #    PIL (and pillow) have can't convert 16 bit grayscale images to lower
-    #    modes, so manually convert them to an 8 bit grayscale.
-    #    im = im.point(list(_points_table()), 'L')
-
     is_transp = is_transparent(im)
     is_grayscale = im.mode in ('L', 'LA')
     new_mode = im.mode
+    
     if is_grayscale or bw:
         new_mode = 'L'
     else:
@@ -220,15 +299,16 @@ def optimize(infile, _format="jpg", filesize="290k"):
         sp.wait()
 
 
-def compress_quality_images(path_src=images_folder, _resize_img="y", _optimize_jpeg="y", _generate_thumbnail="y"):
-    gzip_name = "{}{}{}".format(now, script_name, '.zip')
-    gzip_file = os.path.join(backup_folder, gzip_name)
+def compress_quality_images(path_src=IMAGES_FOLDER, _resize_img="y", _optimize_jpeg="y", _generate_thumbnail="y"):
+    now = time.time()
+    gzip_name = "{}{}{}".format(now, SCRIPT_NAME, '.zip')
+    gzip_file = os.path.join(BACKUP_FOLDER, gzip_name)
     infile_tmp = ""
 
     # create a directory if it does not exist
     try:
-        if not os.path.exists(backup_folder):
-            os.makedirs(backup_folder)
+        if not os.path.exists(BACKUP_FOLDER):
+            os.makedirs(BACKUP_FOLDER)
     except OSError as error:
         logging.exception(error)
         sys.exit()
@@ -247,7 +327,7 @@ def compress_quality_images(path_src=images_folder, _resize_img="y", _optimize_j
                         # for PNG compress
                         formatpim = always_jpg(image_header)
                         file_tmp = "tmp_{}".format(filename)
-                        infile_tmp = os.path.join(tmp_linux_folder, file_tmp)
+                        infile_tmp = os.path.join(TMP_FOLDER, file_tmp)
                         with Image.open(infile) as pim:
                             pim = colorspace(pim)
                             resized = False
@@ -290,7 +370,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='compress images using PIL library')
     parser.add_argument('-src', nargs='?',
-                        type=str, help='an path', default=images_folder)
+                        type=str, help='an path', default=IMAGES_FOLDER)
     parser.add_argument('-resize', nargs='?',
                         type=str, choices=("y", "n"), help='resize maintain ratio, is "y" by default', default="y")
     parser.add_argument('-thumbnail', nargs='?',
@@ -302,9 +382,9 @@ if __name__ == "__main__":
     if args.src:
         logging.info('run script en %s', args.src)
         # script_name is global variable
-        script_name = "-{}".format(os.path.basename(args.src)).lower()
+        SCRIPT_NAME = "-{}".format(os.path.basename(args.src)).lower()
     else:
-        logging.info('run script en %s', images_folder)
+        logging.info('run script en %s', IMAGES_FOLDER)
 
     compress_quality_images(args.src, _resize_img=args.resize, _optimize_jpeg=args.jpegoptim,
                             _generate_thumbnail=args.thumbnail)
