@@ -3,17 +3,32 @@ import ssl
 import json
 import base64
 import unittest
+import shutil
 
 from jwt import api_jws as jws
 from jwt.utils import base64url_decode
 from cryptography.x509 import Certificate
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
-from utils import get_x509_cert_from_pem, get_private_key_from_pem, sign_message_detached, \
+# Import from the package instead of directly from utils
+from json_web_token import (
+    get_x509_cert_from_pem,
+    get_private_key_from_pem,
+    sign_message_detached,
     verify_message_detached
+)
 
+# Get the current directory and set up paths
 current_dir: str = os.path.dirname(__file__)
 certificates_dir: str = os.path.abspath(os.path.join(current_dir, 'testcerts'))
+
+# If testcerts directory doesn't exist in tests, copy it from the root
+if not os.path.exists(certificates_dir):
+    root_certs_dir = os.path.abspath(os.path.join(current_dir, '..', 'src/json_web_token/testcerts'))
+    if os.path.exists(root_certs_dir):
+        shutil.copytree(root_certs_dir, certificates_dir)
+    else:
+        raise FileNotFoundError(f"Certificate directory not found at {root_certs_dir}")
 
 
 class CertType:
