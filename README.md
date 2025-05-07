@@ -30,10 +30,10 @@ Each subfolder contains its own README with details and usage examples.
 ### Python 3 (Recommended)
 
 #### File Management 🗂️
-| Script | Description | Dependencies |
-|--------|-------------|--------------|
-| [`watchdog_ex.py`](python3/watchdog_ex.py) | File system monitoring with basic event handling | [`watchdog`](https://pypi.org/project/watchdog/) |
-| [`watchdog_ex2.py`](python3/watchdog_ex2.py) | Advanced directory monitoring with pattern matching | [`watchdog`](https://pypi.org/project/watchdog/), `re` |
+| Script                                            | Description | Dependencies |
+|---------------------------------------------------|-------------|--------------|
+| [`watchdog_1.py`](python3/watchdog/watchdog_1.py) | File system monitoring with basic event handling | [`watchdog`](https://pypi.org/project/watchdog/) |
+| [`watchdog_2.py`](python3/watchdog/watchdog_2.py)         | Advanced directory monitoring with pattern matching | [`watchdog`](https://pypi.org/project/watchdog/), `re` |
 
 #### System Utilities 🖥️
 | Script | Description | Dependencies |
